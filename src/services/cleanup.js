@@ -34,7 +34,9 @@ function calculateHealthScore({ totalContacts, subscribedCount, unsubscribedCoun
 // This is what populates the dashboard "waste report"
 // ─────────────────────────────────────────────
 async function getAudienceSnapshot(user) {
-  const audiences = await mailchimp.getAllAudiences(user);
+  const { mailchimp_access_token: accessToken, mailchimp_server_prefix: serverPrefix } = user;
+  
+  const audiences = await mailchimp.getAllAudiences(accessToken, serverPrefix);
 
   if (!audiences.length) {
     return { error: 'No Mailchimp audiences found' };
@@ -43,13 +45,13 @@ async function getAudienceSnapshot(user) {
   // Use the first/primary audience
   // TODO: if users have multiple audiences, we could let them pick
   const audience = audiences[0];
-  const audienceInfo = await mailchimp.getAudienceInfo(user, audience.id);
+  const audienceInfo = await mailchimp.getAudienceInfo(accessToken, serverPrefix, audience.id);
 
   // Fetch waste contacts
   const [unsubscribed, bounced, subscribed] = await Promise.all([
-    mailchimp.getAllContactsByStatus(user, audience.id, 'unsubscribed'),
-    mailchimp.getAllContactsByStatus(user, audience.id, 'cleaned'), // 'cleaned' = hard bounced
-    mailchimp.getAllContactsByStatus(user, audience.id, 'subscribed'),
+    mailchimp.getAllContactsByStatus(accessToken, serverPrefix, audience.id, 'unsubscribed'),
+    mailchimp.getAllContactsByStatus(accessToken, serverPrefix, audience.id, 'cleaned'),
+    mailchimp.getAllContactsByStatus(accessToken, serverPrefix, audience.id, 'subscribed'),
   ]);
 
   // Find duplicates across ALL contacts
@@ -133,6 +135,7 @@ async function runCleanup(user, triggeredBy = 'manual') {
       return { error: snapshot.error };
     }
 
+    const { mailchimp_access_token: accessToken, mailchimp_server_prefix: serverPrefix } = user;
     const { audience_id } = snapshot;
     const toArchive = [
       ...snapshot._unsubscribed.map(c => ({ ...c, reason: 'unsubscribed' })),
@@ -146,7 +149,7 @@ async function runCleanup(user, triggeredBy = 'manual') {
     // Archive each contact and record it
     for (const contact of toArchive) {
       try {
-        await mailchimp.archiveContact(user, audience_id, contact.id);
+        await mailchimp.archiveContact(accessToken, serverPrefix, audience_id, contact.id);
 
         archivedRecords.push({
           user_id: user.id,
@@ -217,7 +220,7 @@ async function undoCleanupRun(user, runId) {
     .eq('cleanup_run_id', runId)
     .eq('user_id', user.id)
     .is('restored_at', null)
-    .gt('expires_at', new Date().toISOString()); // Only within 30 days
+    .gt('expires_at', new Date().toISOString());
 
   if (error) throw error;
   if (!contacts.length) {
@@ -236,11 +239,12 @@ async function undoCleanupRun(user, runId) {
   const audienceId = snapshot?.audience_id;
   if (!audienceId) throw new Error('Could not determine audience ID for restore');
 
+  const { mailchimp_access_token: accessToken, mailchimp_server_prefix: serverPrefix } = user;
   let restoredCount = 0;
 
   for (const contact of contacts) {
     try {
-      await mailchimp.restoreContact(user, audienceId, contact.mailchimp_contact_id, contact.original_status);
+      await mailchimp.restoreContact(accessToken, serverPrefix, audienceId, contact.mailchimp_contact_id, contact.original_status);
 
       await supabase
         .from('archived_contacts')
