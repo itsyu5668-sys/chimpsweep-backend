@@ -13,13 +13,18 @@ const MAILCHIMP_METADATA_URL = 'https://login.mailchimp.com/oauth2/metadata';
 // Step 1: Redirect user to Mailchimp OAuth
 // ─────────────────────────────────────────────
 router.get('/mailchimp', (req, res) => {
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: process.env.MAILCHIMP_CLIENT_ID,
-    redirect_uri: process.env.MAILCHIMP_REDIRECT_URI,
-  });
+  const clientId = process.env.MAILCHIMP_CLIENT_ID;
+  const redirectUri = process.env.MAILCHIMP_REDIRECT_URI;
 
-  res.redirect(`${MAILCHIMP_AUTH_URL}?${params.toString()}`);
+  if (!clientId || !redirectUri) {
+    console.error('Missing MAILCHIMP_CLIENT_ID or MAILCHIMP_REDIRECT_URI');
+    return res.status(500).send('OAuth misconfigured');
+  }
+
+  const mailchimpAuthUrl = `${MAILCHIMP_AUTH_URL}?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+  console.log('🔐 OAuth redirect URL:', mailchimpAuthUrl);
+  res.redirect(mailchimpAuthUrl);
 });
 
 // ─────────────────────────────────────────────
