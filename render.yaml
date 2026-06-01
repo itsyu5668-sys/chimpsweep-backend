@@ -1,12 +1,14 @@
 services:
-  - type: web
+  - type: web_service
     name: chimpsweep-backend
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm start
     startCommand: npm start
     healthCheckPath: /health
+    repo: https://github.com/itsyu5668-sys/chimpsweep-backend
+    branch: main
     envVars:
       - key: NODE_ENV
         value: production
