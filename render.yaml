@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: billingsaver-backend
+    name: chimpsweep-backend
     env: node
     region: oregon
     plan: free
@@ -11,28 +11,28 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3000
+        value: "3000"
       - key: FRONTEND_URL
-        sync: false
+        value: https://chimpsweep-frontend.onrender.com
       - key: SUPABASE_URL
-        sync: false
+        value: https://athywzsnhqtjvjuraejn.supabase.co
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aHl3enNuaHF0anZqdXJhZWpuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDI4Mzg1NywiZXhwIjoyMDk1ODU5ODU3fQ.FvAUHuLDonuZaXj-mye2PAM9kVcnQDjRCyBBT8x-Dts
       - key: SUPABASE_ANON_KEY
-        sync: false
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aHl3enNuaHF0anZqdXJhZWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODM4NTcsImV4cCI6MjA5NTg1OTg1N30.rAvhjPPW1ZEGQ82SyApIanNH3focwgKEZfY87Mw09Z
       - key: MAILCHIMP_CLIENT_ID
-        sync: false
+        value: PLACEHOLDER_MAILCHIMP_CLIENT_ID
       - key: MAILCHIMP_CLIENT_SECRET
-        sync: false
+        value: PLACEHOLDER_MAILCHIMP_CLIENT_SECRET
       - key: MAILCHIMP_REDIRECT_URI
-        sync: false
+        value: https://chimpsweep-backend.onrender.com/api/auth/mailchimp/callback
       - key: STRIPE_SECRET_KEY
-        sync: false
+        value: PLACEHOLDER_STRIPE_SECRET_KEY
       - key: STRIPE_WEBHOOK_SECRET
-        sync: false
+        value: PLACEHOLDER_STRIPE_WEBHOOK_SECRET
       - key: STRIPE_BASIC_PRICE_ID
-        sync: false
+        value: PLACEHOLDER_STRIPE_BASIC_PRICE_ID
       - key: STRIPE_PRO_PRICE_ID
-        sync: false
+        value: PLACEHOLDER_STRIPE_PRO_PRICE_ID
       - key: JWT_SECRET
-        sync: false
+        value: chimpsweep-jwt-secret-32chars-min
