@@ -27,9 +27,9 @@ services:
       - key: JWT_SECRET
         value: chimpsweep-jwt-secret-32chars-min
       - key: MAILCHIMP_CLIENT_ID
-        value: placeholder
+        value: 194905391494
       - key: MAILCHIMP_CLIENT_SECRET
-        value: placeholder
+        value: 3008ae3d648385ee6073e417a09f632daa24894bd63375c934
       - key: MAILCHIMP_REDIRECT_URI
         value: https://chimpsweep-backend.onrender.com/api/auth/mailchimp/callback
       - key: STRIPE_SECRET_KEY
