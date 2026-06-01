@@ -29,7 +29,7 @@ services:
       - key: MAILCHIMP_CLIENT_ID
         value: 194905391494
       - key: MAILCHIMP_CLIENT_SECRET
-        value: 3008ae3d648385ee6073e417a09f632daa24894bd63375c934
+        value: 90e62554f14347a5cb4d7e67bf7c2d7f3e52f02c08c4f90ddd
       - key: MAILCHIMP_REDIRECT_URI
         value: https://chimpsweep-backend.onrender.com/api/auth/mailchimp/callback
       - key: STRIPE_SECRET_KEY
