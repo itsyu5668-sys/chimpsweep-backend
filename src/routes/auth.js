@@ -35,12 +35,23 @@ router.get('/mailchimp', (req, res) => {
 router.get('/mailchimp/callback', async (req, res) => {
   const { code, error } = req.query;
 
-  if (error || !code) {
+  if (error) {
+    console.error('Mailchimp OAuth error param:', error);
     return res.redirect(`${process.env.FRONTEND_URL}/auth/error?reason=mailchimp_denied`);
   }
 
+  if (!code) {
+    console.error('No code provided in callback');
+    return res.redirect(`${process.env.FRONTEND_URL}/auth/error?reason=no_code`);
+  }
+
   try {
-    // Exchange code for access token
+    // 1. Exchange code for access token
+    console.log('📝 Exchanging code for access token...');
+    console.log('   Token URL:', MAILCHIMP_TOKEN_URL);
+    console.log('   Client ID:', process.env.MAILCHIMP_CLIENT_ID);
+    console.log('   Redirect URI:', process.env.MAILCHIMP_REDIRECT_URI);
+
     const tokenResponse = await axios.post(
       MAILCHIMP_TOKEN_URL,
       new URLSearchParams({
@@ -50,20 +61,45 @@ router.get('/mailchimp/callback', async (req, res) => {
         redirect_uri: process.env.MAILCHIMP_REDIRECT_URI,
         code,
       }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      { 
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        validateStatus: () => true, // Don't throw on any status code
+      }
     );
 
-    const { access_token } = tokenResponse.data;
+    console.log('✅ Token response status:', tokenResponse.status);
+    console.log('📄 Token response body:', JSON.stringify(tokenResponse.data, null, 2));
 
-    // Get user metadata (dc = server prefix like "us1")
-    const metaResponse = await axios.get(MAILCHIMP_METADATA_URL, {
+    if (tokenResponse.status !== 200 || !tokenResponse.data.access_token) {
+      console.error('❌ Token exchange failed:', tokenResponse.data);
+      return res.redirect(`${process.env.FRONTEND_URL}/auth/error?reason=token_exchange_failed`);
+    }
+
+    const { access_token } = tokenResponse.data;
+    console.log('✨ Access token received (first 20 chars):', access_token.substring(0, 20) + '...');
+
+    // 2. Get metadata using the access token
+    console.log('🔍 Fetching metadata with access token...');
+    const metadataResponse = await axios.get(MAILCHIMP_METADATA_URL, {
       headers: { Authorization: `OAuth ${access_token}` },
+      validateStatus: () => true, // Don't throw on any status code
     });
 
-    const { login, dc: serverPrefix, accountname } = metaResponse.data;
+    console.log('✅ Metadata response status:', metadataResponse.status);
+    console.log('📄 Metadata body:', JSON.stringify(metadataResponse.data, null, 2));
+
+    if (metadataResponse.status !== 200 || !metadataResponse.data.dc) {
+      console.error('❌ Metadata fetch failed:', metadataResponse.data);
+      return res.redirect(`${process.env.FRONTEND_URL}/auth/error?reason=metadata_fetch_failed`);
+    }
+
+    const { login, dc: serverPrefix, accountname } = metadataResponse.data;
     const mailchimpUserId = login.login_id?.toString() || login.email;
 
-    // Check if user already exists - if so, update only the token fields
+    console.log('👤 User ID:', mailchimpUserId);
+    console.log('🗺️ Server prefix:', serverPrefix);
+
+    // 3. Check if user already exists
     const { data: existingUser } = await supabase
       .from('users')
       .select('id, onboarding_step, plan, subscription_status')
@@ -73,6 +109,7 @@ router.get('/mailchimp/callback', async (req, res) => {
     let user;
     
     if (existingUser) {
+      console.log('📝 Updating existing user:', existingUser.id);
       // Existing user - update token but keep their onboarding step
       const { data: updatedUser, error: updateError } = await supabase
         .from('users')
@@ -85,9 +122,13 @@ router.get('/mailchimp/callback', async (req, res) => {
         .select()
         .single();
       
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('❌ Supabase update error:', updateError);
+        throw updateError;
+      }
       user = updatedUser;
     } else {
+      console.log('🆕 Creating new user');
       // Brand new user - set onboarding_step to 'connected'
       const { data: newUser, error: insertError } = await supabase
         .from('users')
@@ -96,25 +137,34 @@ router.get('/mailchimp/callback', async (req, res) => {
           mailchimp_login: login.email || accountname,
           mailchimp_access_token: access_token,
           mailchimp_server_prefix: serverPrefix,
-          onboarding_step: 'connected', // New users start at 'connected' step
-          plan: 'free',                 // Default to free plan
-          subscription_status: 'none',   // No subscription yet
+          onboarding_step: 'connected',
+          plan: 'free',
+          subscription_status: 'none',
         })
         .select()
         .single();
       
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('❌ Supabase insert error:', insertError);
+        throw insertError;
+      }
       user = newUser;
     }
 
+    console.log('✅ User stored in Supabase:', user.id);
+
     // Determine where to send this user based on their workflow step
     const { redirect } = getWorkflowRedirect(user);
+    console.log('🎯 Workflow redirect:', redirect);
 
     // Send them to the frontend with their user ID as the session token
-    // (simple approach — user ID in URL, frontend stores it)
-    res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${user.id}&redirect=${redirect}`);
+    const redirectUrl = `${process.env.FRONTEND_URL}/auth/success?token=${user.id}&redirect=${redirect}`;
+    console.log('🚀 Final redirect URL:', redirectUrl);
+    res.redirect(redirectUrl);
+
   } catch (err) {
-    console.error('Mailchimp OAuth error:', err.message);
+    console.error('❌ Callback error:', err.message);
+    console.error('   Stack:', err.stack);
     res.redirect(`${process.env.FRONTEND_URL}/auth/error?reason=oauth_failed`);
   }
 });
