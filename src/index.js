@@ -24,6 +24,9 @@ app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 // JSON parser for all other routes
 app.use(express.json());
 
+// Trust proxy for rate limiting behind reverse proxy (e.g., on Render)
+app.set('trust proxy', 1);
+
 // CORS — allow frontend origin (multiple origins for flexibility)
 const allowedOrigins = [
   process.env.FRONTEND_URL,

@@ -2,12 +2,13 @@ const axios = require('axios');
 
 // ─────────────────────────────────────────────
 // Creates an Axios instance for a specific user's Mailchimp account
+// Uses OAuth access token (from OAuth2 exchange, not API key)
 // ─────────────────────────────────────────────
-function getMailchimpClient(user) {
+function getMailchimpClient(accessToken, serverPrefix) {
   return axios.create({
-    baseURL: `https://${user.mailchimp_server_prefix}.api.mailchimp.com/3.0`,
+    baseURL: `https://${serverPrefix}.api.mailchimp.com/3.0`,
     headers: {
-      Authorization: `Bearer ${user.mailchimp_access_token}`,
+      Authorization: `OAuth ${accessToken}`,
       'Content-Type': 'application/json',
     },
   });
@@ -17,8 +18,8 @@ function getMailchimpClient(user) {
 // getAllAudiences
 // Returns all lists/audiences for the user
 // ─────────────────────────────────────────────
-async function getAllAudiences(user) {
-  const client = getMailchimpClient(user);
+async function getAllAudiences(accessToken, serverPrefix) {
+  const client = getMailchimpClient(accessToken, serverPrefix);
   const response = await client.get('/lists', {
     params: { count: 100, fields: 'lists.id,lists.name,lists.stats' },
   });
@@ -30,8 +31,8 @@ async function getAllAudiences(user) {
 // Fetches one page of contacts from a Mailchimp audience
 // Used for iterating through all contacts
 // ─────────────────────────────────────────────
-async function getContactsPage(user, audienceId, status, offset = 0, count = 1000) {
-  const client = getMailchimpClient(user);
+async function getContactsPage(accessToken, serverPrefix, audienceId, status, offset = 0, count = 1000) {
+  const client = getMailchimpClient(accessToken, serverPrefix);
   const response = await client.get(`/lists/${audienceId}/members`, {
     params: {
       status,
@@ -47,13 +48,13 @@ async function getContactsPage(user, audienceId, status, offset = 0, count = 100
 // getAllContactsByStatus
 // Fetches ALL contacts with a given status (handles pagination)
 // ─────────────────────────────────────────────
-async function getAllContactsByStatus(user, audienceId, status) {
+async function getAllContactsByStatus(accessToken, serverPrefix, audienceId, status) {
   const contacts = [];
   let offset = 0;
   const pageSize = 1000;
 
   while (true) {
-    const page = await getContactsPage(user, audienceId, status, offset, pageSize);
+    const page = await getContactsPage(accessToken, serverPrefix, audienceId, status, offset, pageSize);
     const members = page.members || [];
     contacts.push(...members);
 
@@ -69,8 +70,8 @@ async function getAllContactsByStatus(user, audienceId, status) {
 // Archives a single contact in Mailchimp
 // "Archived" contacts don't count toward billing
 // ─────────────────────────────────────────────
-async function archiveContact(user, audienceId, subscriberHash) {
-  const client = getMailchimpClient(user);
+async function archiveContact(accessToken, serverPrefix, audienceId, subscriberHash) {
+  const client = getMailchimpClient(accessToken, serverPrefix);
   // DELETE on a member = archive (not permanent delete)
   await client.delete(`/lists/${audienceId}/members/${subscriberHash}`);
 }
@@ -79,8 +80,8 @@ async function archiveContact(user, audienceId, subscriberHash) {
 // restoreContact
 // Restores an archived contact back to their original status
 // ─────────────────────────────────────────────
-async function restoreContact(user, audienceId, subscriberHash, originalStatus) {
-  const client = getMailchimpClient(user);
+async function restoreContact(accessToken, serverPrefix, audienceId, subscriberHash, originalStatus) {
+  const client = getMailchimpClient(accessToken, serverPrefix);
   await client.put(`/lists/${audienceId}/members/${subscriberHash}`, {
     status: originalStatus,
   });
@@ -90,8 +91,8 @@ async function restoreContact(user, audienceId, subscriberHash, originalStatus) 
 // getAudienceInfo
 // Gets detailed stats for a single audience
 // ─────────────────────────────────────────────
-async function getAudienceInfo(user, audienceId) {
-  const client = getMailchimpClient(user);
+async function getAudienceInfo(accessToken, serverPrefix, audienceId) {
+  const client = getMailchimpClient(accessToken, serverPrefix);
   const response = await client.get(`/lists/${audienceId}`, {
     params: {
       fields: 'id,name,stats,visibility',
