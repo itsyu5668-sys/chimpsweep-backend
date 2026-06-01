@@ -4,37 +4,39 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install && npm start
-    startCommand: npm start
+    buildCommand: npm install
+    startCommand: node src/index.js
     healthCheckPath: /health
     repo: https://github.com/itsyu5668-sys/chimpsweep-backend
     branch: main
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "20.18.0"
       - key: PORT
         value: "3000"
       - key: FRONTEND_URL
         value: https://chimpsweep-frontend.onrender.com
       - key: SUPABASE_URL
         value: https://athywzsnhqtjvjuraejn.supabase.co
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aHl3enNuaHF0anZqdXJhZWpuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDI4Mzg1NywiZXhwIjoyMDk1ODU5ODU3fQ.FvAUHuLDonuZaXj-mye2PAM9kVcnQDjRCyBBT8x-Dts
       - key: SUPABASE_ANON_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aHl3enNuaHF0anZqdXJhZWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODM4NTcsImV4cCI6MjA5NTg1OTg1N30.rAvhjPPW1ZEGQ82SyApIanNH3focwgKEZfY87Mw09Z
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aHl3enNuaHF0anZqdXJhZWpuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDI4Mzg1NywiZXhwIjoyMDk1ODU5ODU3fQ.FvAUHuLDonuZaXj-mye2PAM9kVcnQDjRCyBBT8x-Dts
+      - key: JWT_SECRET
+        value: chimpsweep-jwt-secret-32chars-min
       - key: MAILCHIMP_CLIENT_ID
-        value: PLACEHOLDER_MAILCHIMP_CLIENT_ID
+        value: placeholder
       - key: MAILCHIMP_CLIENT_SECRET
-        value: PLACEHOLDER_MAILCHIMP_CLIENT_SECRET
+        value: placeholder
       - key: MAILCHIMP_REDIRECT_URI
         value: https://chimpsweep-backend.onrender.com/api/auth/mailchimp/callback
       - key: STRIPE_SECRET_KEY
-        value: PLACEHOLDER_STRIPE_SECRET_KEY
+        value: placeholder
       - key: STRIPE_WEBHOOK_SECRET
-        value: PLACEHOLDER_STRIPE_WEBHOOK_SECRET
+        value: placeholder
       - key: STRIPE_BASIC_PRICE_ID
-        value: PLACEHOLDER_STRIPE_BASIC_PRICE_ID
+        value: placeholder
       - key: STRIPE_PRO_PRICE_ID
-        value: PLACEHOLDER_STRIPE_PRO_PRICE_ID
-      - key: JWT_SECRET
-        value: chimpsweep-jwt-secret-32chars-min
+        value: placeholder
