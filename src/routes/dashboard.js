@@ -132,3 +132,4 @@ router.get('/health', requireAuth, requireActiveSubscription, async (req, res) =
 });
 
 module.exports = router;
+// Build command fix
