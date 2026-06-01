@@ -1,4 +1,7 @@
-require('dotenv').config();
+// Only load dotenv in development (Render sets env vars automatically)
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
