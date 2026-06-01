@@ -58,27 +58,49 @@ router.get('/mailchimp/callback', async (req, res) => {
     const { login, dc: serverPrefix, accountname } = metaResponse.data;
     const mailchimpUserId = login.login_id?.toString() || login.email;
 
-    // Upsert user — if they exist, update the token; if not, create them
-    const { data: user, error: upsertError } = await supabase
+    // Check if user already exists - if so, update only the token fields
+    const { data: existingUser } = await supabase
       .from('users')
-      .upsert(
-        {
+      .select('id, onboarding_step, plan, subscription_status')
+      .eq('mailchimp_user_id', mailchimpUserId)
+      .single();
+
+    let user;
+    
+    if (existingUser) {
+      // Existing user - update token but keep their onboarding step
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({
+          mailchimp_login: login.email || accountname,
+          mailchimp_access_token: access_token,
+          mailchimp_server_prefix: serverPrefix,
+        })
+        .eq('mailchimp_user_id', mailchimpUserId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      user = updatedUser;
+    } else {
+      // Brand new user - set onboarding_step to 'connected'
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({
           mailchimp_user_id: mailchimpUserId,
           mailchimp_login: login.email || accountname,
           mailchimp_access_token: access_token,
           mailchimp_server_prefix: serverPrefix,
-          // Only set onboarding_step if this is a brand new user
-          // For existing users, keep whatever step they're on
-        },
-        {
-          onConflict: 'mailchimp_user_id',
-          ignoreDuplicates: false,
-        }
-      )
-      .select()
-      .single();
-
-    if (upsertError) throw upsertError;
+          onboarding_step: 'connected', // New users start at 'connected' step
+          plan: 'free',                 // Default to free plan
+          subscription_status: 'none',   // No subscription yet
+        })
+        .select()
+        .single();
+      
+      if (insertError) throw insertError;
+      user = newUser;
+    }
 
     // Determine where to send this user based on their workflow step
     const { redirect } = getWorkflowRedirect(user);
