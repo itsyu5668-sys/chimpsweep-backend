@@ -24,12 +24,27 @@ app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 // JSON parser for all other routes
 app.use(express.json());
 
-// CORS — allow frontend origin
+// CORS — allow frontend origin (multiple origins for flexibility)
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://chimpsweep-frontend.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   credentials: true,
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
 }));
 
 // Basic rate limiting — 100 requests per 15 minutes per IP
@@ -72,4 +87,3 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
-// trigger deploy
