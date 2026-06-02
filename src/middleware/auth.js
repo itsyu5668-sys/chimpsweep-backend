@@ -1,41 +1,36 @@
 const supabase = require('../lib/supabase');
 
-// ─────────────────────────────────────────────
-// requireAuth
-// Validates the session token from the request header
-// and attaches the user to req.user
-// ─────────────────────────────────────────────
 async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
+  if (!token) return res.status(401).json({ error: 'No token provided' });
 
   const { data: user, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', token)
-    .single();
+    .from('users').select('*').eq('id', token).single();
 
-  if (error || !user) {
-    return res.status(401).json({ error: 'Invalid or expired session' });
-  }
+  if (error || !user) return res.status(401).json({ error: 'Invalid or expired session' });
 
   req.user = user;
   next();
 }
 
-// ─────────────────────────────────────────────
-// requireActiveSubscription
-// Used on routes that need a paid plan
-// ─────────────────────────────────────────────
 async function requireActiveSubscription(req, res, next) {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
+  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
   const user = req.user;
+
+  // ── Beta plan check ──
+  if (user.plan === 'beta') {
+    if (!user.beta_expires_at || new Date(user.beta_expires_at) < new Date()) {
+      return res.status(403).json({
+        error: 'Your beta access has expired.',
+        code: 'BETA_EXPIRED',
+        redirect: '/pricing'
+      });
+    }
+    return next(); // Beta is valid — let them through
+  }
+
+  // ── Paid plan check ──
   const isActive = user.subscription_status === 'active';
   const notExpired = user.subscription_current_period_end
     ? new Date(user.subscription_current_period_end) > new Date()
@@ -52,43 +47,32 @@ async function requireActiveSubscription(req, res, next) {
   next();
 }
 
-// ─────────────────────────────────────────────
-// getWorkflowRedirect
-// Given a user object, returns where they should be redirected
-// This is the core of the workflow guard logic
-//
-// Steps:
-//   connected       → must select a plan   → /pricing
-//   plan_selected   → subscription active? → /dashboard (or /pricing if not paid)
-//   active          → /dashboard
-// ─────────────────────────────────────────────
 function getWorkflowRedirect(user) {
   const step = user.onboarding_step;
   const subStatus = user.subscription_status;
 
+  // ── Beta users go straight to dashboard ──
+  if (user.plan === 'beta') {
+    if (user.beta_expires_at && new Date(user.beta_expires_at) < new Date()) {
+      return { redirect: '/pricing', reason: 'beta_expired' };
+    }
+    return { redirect: '/dashboard', reason: 'complete' };
+  }
+
   if (step === 'connected') {
-    // They connected Mailchimp but haven't picked a plan
     return { redirect: '/pricing', reason: 'plan_not_selected' };
   }
 
   if (step === 'plan_selected') {
-    // They picked a plan but payment may not have completed
-    if (subStatus !== 'active') {
-      return { redirect: '/pricing', reason: 'payment_incomplete' };
-    }
-    // Payment done, mark as active
+    if (subStatus !== 'active') return { redirect: '/pricing', reason: 'payment_incomplete' };
     return { redirect: '/dashboard', reason: 'complete' };
   }
 
   if (step === 'active') {
-    if (subStatus !== 'active') {
-      // Subscription lapsed - send back to pricing
-      return { redirect: '/pricing', reason: 'subscription_inactive' };
-    }
+    if (subStatus !== 'active') return { redirect: '/pricing', reason: 'subscription_inactive' };
     return { redirect: '/dashboard', reason: 'complete' };
   }
 
-  // Default fallback
   return { redirect: '/pricing', reason: 'unknown' };
 }
 
