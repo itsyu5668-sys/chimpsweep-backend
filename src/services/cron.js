@@ -61,6 +61,41 @@ function startCronJobs() {
     }
   });
 
+  // ─────────────────────────────────────────────
+  // Beta expiry cron
+  // Runs every day at 4:00 AM UTC
+  // Downgrades users whose 14-day beta has expired
+  // ─────────────────────────────────────────────
+  cron.schedule('0 4 * * *', async () => {
+    console.log('[CRON] Checking for expired beta users...');
+
+    const { data: expiredUsers, error } = await supabase
+      .from('users')
+      .select('id, mailchimp_login')
+      .eq('plan', 'beta')
+      .lt('beta_expires_at', new Date().toISOString());
+
+    if (error) {
+      console.error('[CRON] Failed to fetch expired beta users:', error.message);
+      return;
+    }
+
+    if (!expiredUsers.length) {
+      console.log('[CRON] No expired beta users found.');
+      return;
+    }
+
+    for (const user of expiredUsers) {
+      await supabase
+        .from('users')
+        .update({ plan: 'free', onboarding_step: 'connected' })
+        .eq('id', user.id);
+      console.log(`[CRON] Beta expired for user ${user.mailchimp_login} — downgraded to free`);
+    }
+
+    console.log(`[CRON] Beta expiry sweep done. ${expiredUsers.length} user(s) downgraded.`);
+  });
+
   console.log('[CRON] Cron jobs registered.');
 }
 
