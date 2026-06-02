@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 const supabase = require('../lib/supabase');
-const { getWorkflowRedirect } = require('../middleware/auth');
+const { getWorkflowRedirect, requireAuth } = require('../middleware/auth');
 
 const MAILCHIMP_AUTH_URL = 'https://login.mailchimp.com/oauth2/authorize';
 const MAILCHIMP_TOKEN_URL = 'https://login.mailchimp.com/oauth2/token';
@@ -213,6 +213,59 @@ router.get('/me', async (req, res) => {
 router.post('/logout', (req, res) => {
   // Stateless — client deletes token from localStorage
   res.json({ success: true });
+});
+
+// ─────────────────────────────────────────────
+// POST /api/auth/redeem-beta
+// Validates a beta invite code, activates beta plan for 14 days
+// ─────────────────────────────────────────────
+router.post('/redeem-beta', requireAuth, async (req, res) => {
+  const { code } = req.body;
+
+  if (!code) return res.status(400).json({ error: 'No code provided' });
+
+  const cleanCode = code.trim().toUpperCase();
+
+  // Look up the code
+  const { data: betaCode, error: lookupError } = await supabase
+    .from('beta_codes')
+    .select('*')
+    .eq('code', cleanCode)
+    .single();
+
+  if (lookupError || !betaCode) {
+    return res.status(400).json({ error: 'Invalid invite code. Please check and try again.' });
+  }
+
+  if (betaCode.used_by) {
+    return res.status(400).json({ error: 'This invite code has already been used.' });
+  }
+
+  // Calculate 14-day expiry from now
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 14);
+
+  // Mark code as used
+  await supabase
+    .from('beta_codes')
+    .update({ used_by: req.user.id, used_at: new Date().toISOString() })
+    .eq('code', cleanCode);
+
+  // Upgrade user to beta plan
+  await supabase
+    .from('users')
+    .update({
+      plan: 'beta',
+      onboarding_step: 'active',
+      beta_expires_at: expiresAt.toISOString(),
+    })
+    .eq('id', req.user.id);
+
+  res.json({
+    success: true,
+    message: 'Beta access activated!',
+    beta_expires_at: expiresAt.toISOString(),
+  });
 });
 
 module.exports = router;
